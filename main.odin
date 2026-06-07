@@ -66,7 +66,7 @@ handle_mouse :: proc(cloth: ^Cloth) {
 
     pos: rl.Vector2 = rl.GetMousePosition()
     delta: rl.Vector2 = pos - prev_mouse
-    delta = rl.Vector2Clamp(delta, {0,0}, {100,100})
+    delta = rl.Vector2Clamp(delta, {-100,-100}, {100,100})
 
     for &point in cloth.points {
         dist: f32 = rl.Vector2Distance(pos, point.pos)
@@ -80,6 +80,8 @@ handle_mouse :: proc(cloth: ^Cloth) {
             point.selected = false
         }
     }
+
+    prev_mouse = pos
 }
 
 update :: proc(
@@ -174,9 +176,9 @@ main :: proc() {
     ELASTICITY: f32 = 80
 
     ACCELERATION: rl.Vector2 = { 0, 980 }
-    DRAG: f32 = 0.05 
-    ITERATIONS :: 3
-    STIFFNESS :: 1
+    DRAG: f32 = 0.005 
+    ITERATIONS :: 20
+    STIFFNESS :: 0.8
 
 
     for !rl.WindowShouldClose() {
