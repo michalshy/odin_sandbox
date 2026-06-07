@@ -24,6 +24,11 @@ Cloth :: struct {
     sticks: [dynamic]^Stick
 }
 
+load :: proc() {
+    rl.InitWindow(1280, 720, "Cloth")
+    rl.SetTargetFPS(300)
+}
+
 create_cloth :: proc(width, height, spacing, start_x, start_y: int) -> (c: Cloth) {
     for y := 0; y <= height; y += 1 {
         for x := 0; x <= width; x += 1 {
@@ -31,7 +36,8 @@ create_cloth :: proc(width, height, spacing, start_x, start_y: int) -> (c: Cloth
             point.init_pos = { f32(start_x + spacing * x), f32(start_y + spacing * y) }
             point.pos = point.init_pos
             point.prev_pos = point.init_pos
-            point.pinned = y == 0 && (x == 0 || x == width)
+            // point.pinned = y == 0 && (x == 0 || x == width)
+            point.pinned = y == 0 
             point.selected = false
             append(&c.points, point)
 
@@ -55,9 +61,25 @@ create_cloth :: proc(width, height, spacing, start_x, start_y: int) -> (c: Cloth
     return c
 }
 
-load :: proc() {
-    rl.InitWindow(1280, 720, "Cloth")
-    rl.SetTargetFPS(300)
+handle_mouse :: proc(cloth: ^Cloth) {
+    @(static) prev_mouse: rl.Vector2
+
+    pos: rl.Vector2 = rl.GetMousePosition()
+    delta: rl.Vector2 = pos - prev_mouse
+    delta = rl.Vector2Clamp(delta, {0,0}, {100,100})
+
+    for &point in cloth.points {
+        dist: f32 = rl.Vector2Distance(pos, point.pos)
+        if dist < 10 {
+            if rl.IsMouseButtonDown(.LEFT) { 
+                point.prev_pos = point.prev_pos + delta
+                point.pos = point.pos + delta
+            }
+            point.selected = true
+        } else {
+            point.selected = false
+        }
+    }
 }
 
 update :: proc(
@@ -160,8 +182,7 @@ main :: proc() {
     for !rl.WindowShouldClose() {
         rl.BeginDrawing()
         rl.ClearBackground({33, 40, 48, 255})
-
-        
+        handle_mouse(&cloth)
         update(&cloth, rl.GetFrameTime(), SPACING, DRAG, ACCELERATION, ITERATIONS, ELASTICITY, STIFFNESS);
         draw(&cloth, SPACING, ELASTICITY)
         rl.EndDrawing()
