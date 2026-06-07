@@ -1,6 +1,6 @@
 package main
 
-import "core:fmt"
+import "core:math"
 import rl "vendor:raylib"
 
 BACKGROUND_COLOR :: rl.Color{20,20,20,255}
@@ -31,7 +31,7 @@ create_cloth :: proc(width, height, spacing, start_x, start_y: int) -> (c: Cloth
             point.init_pos = { f32(start_x + spacing * x), f32(start_y + spacing * y) }
             point.pos = point.init_pos
             point.prev_pos = point.init_pos
-            point.pinned = y == 0
+            point.pinned = y == 0 && (x == 0 || x == width)
             point.selected = false
             append(&c.points, point)
 
@@ -58,6 +58,54 @@ create_cloth :: proc(width, height, spacing, start_x, start_y: int) -> (c: Cloth
 load :: proc() {
     rl.InitWindow(1280, 720, "Cloth")
     rl.SetTargetFPS(300)
+}
+
+update :: proc(
+    cloth: ^Cloth, 
+    delta_time: f32, 
+    spacing: int, 
+    drag: f32, 
+    acceleration: 
+    rl.Vector2, 
+    iterations: int,
+    elasticity: f32,
+    stiffness: f32
+) {
+    for point in cloth.points {
+        if point.pinned {
+            point.pos = point.init_pos
+            continue
+        }
+
+        velocity: rl.Vector2 = point.pos - point.prev_pos
+        point.prev_pos = point.pos
+        point.pos += velocity * (1 - drag) + acceleration * delta_time * delta_time
+    }
+
+    factor := 1.0 - math.pow(1.0 - stiffness, 1.0 / f32(iterations))
+
+    for i := 0; i < iterations; i+=1 {
+        for stick in cloth.sticks {
+            delta: rl.Vector2 = stick.p1.pos - stick.p0.pos
+            dist: f32 = rl.Vector2Length(delta)
+
+            if dist > elasticity {
+                stick.active = false
+            }
+
+            dir: rl.Vector2 = delta / dist
+            correction: rl.Vector2 = dir * ((dist - f32(spacing)) * 0.5)
+            correction *= factor
+
+            if !stick.p0.pinned && stick.active {
+                stick.p0.pos += correction
+            }
+    
+            if !stick.p1.pinned && stick.active  {
+                stick.p1.pos -= correction
+            }
+        }
+    }
 }
 
 draw :: proc(cloth: ^Cloth, spacing: int, elasticity: f32) {
@@ -103,12 +151,18 @@ main :: proc() {
 
     ELASTICITY: f32 = 80
 
+    ACCELERATION: rl.Vector2 = { 0, 980 }
+    DRAG: f32 = 0.05 
+    ITERATIONS :: 3
+    STIFFNESS :: 1
+
+
     for !rl.WindowShouldClose() {
         rl.BeginDrawing()
         rl.ClearBackground({33, 40, 48, 255})
 
         
-
+        update(&cloth, rl.GetFrameTime(), SPACING, DRAG, ACCELERATION, ITERATIONS, ELASTICITY, STIFFNESS);
         draw(&cloth, SPACING, ELASTICITY)
         rl.EndDrawing()
     }
